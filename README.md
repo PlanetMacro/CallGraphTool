@@ -52,3 +52,5 @@ Override the language and output path:
 ```bash
 callgraphtool path/to/project my_function --language py --output callgraph.svg
 ```
+
+For Rust projects, `callgraphtool` preprocesses sources to improve parsing (e.g. `pub async fn` and `::<T>(...)`); disable with `--no-rust-preprocess`.
