@@ -14,6 +14,14 @@ def _vendored_callgraph_path() -> Path:
     return Path(__file__).resolve().parents[2] / "third_party" / "callGraph" / "callGraph"
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _results_dir() -> Path:
+    return _repo_root() / "results"
+
+
 def _project_local_perl5lib() -> Path:
     return Path(__file__).resolve().parents[2] / ".perl5" / "lib" / "perl5"
 
@@ -152,7 +160,7 @@ def _normalize_start(raw: str) -> str:
 
 def _default_output_path(function_name: str) -> Path:
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", function_name).strip("_") or "callgraph"
-    return Path.cwd() / f"callgraph_{safe}.png"
+    return _results_dir() / f"callgraph_{safe}.png"
 
 
 def build_parser() -> argparse.ArgumentParser:

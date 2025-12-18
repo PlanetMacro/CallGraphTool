@@ -11,6 +11,9 @@ ENV/
 # Local Perl libs (optional)
 .perl5/
 
+# Generated results (graphs)
+results/
+
 # Distribution / packaging
 build/
 dist/

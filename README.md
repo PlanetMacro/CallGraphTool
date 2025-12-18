@@ -45,6 +45,8 @@ Generate a call graph for a function within a folder (defaults to Python / `-lan
 callgraphtool path/to/project my_function
 ```
 
+By default, outputs are written to `results/` in this repo.
+
 Override the language and output path:
 
 ```bash
