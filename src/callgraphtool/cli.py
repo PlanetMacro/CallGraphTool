@@ -18,6 +18,53 @@ def _project_local_perl5lib() -> Path:
     return Path(__file__).resolve().parents[2] / ".perl5" / "lib" / "perl5"
 
 
+_LANGUAGE_ALIASES: dict[str, str] = {
+    # callGraph codes (as-is)
+    "awk": "awk",
+    "bas": "bas",
+    "c": "c",
+    "cpp": "cpp",
+    "dart": "dart",
+    "for": "for",
+    "go": "go",
+    "java": "java",
+    "jl": "jl",
+    "js": "js",
+    "kt": "kt",
+    "lua": "lua",
+    "m": "m",
+    "pas": "pas",
+    "php": "php",
+    "pl": "pl",
+    "py": "py",
+    "r": "r",
+    "rb": "rb",
+    "rs": "rs",
+    "sc": "sc",
+    "sh": "sh",
+    "swift": "swift",
+    "tcl": "tcl",
+    "ts": "ts",
+    "v": "v",
+    # friendly aliases
+    "bash": "sh",
+    "basic": "bas",
+    "fortran": "for",
+    "javascript": "js",
+    "julia": "jl",
+    "kotlin": "kt",
+    "matlab": "m",
+    "pascal": "pas",
+    "perl": "pl",
+    "python": "py",
+    "ruby": "rb",
+    "rust": "rs",
+    "scala": "sc",
+    "typescript": "ts",
+    "verilog": "v",
+}
+
+
 def _resolve_callgraph_bin(explicit_path: str | None) -> str | None:
     if explicit_path:
         return explicit_path
@@ -33,37 +80,46 @@ def _resolve_callgraph_bin(explicit_path: str | None) -> str | None:
     return shutil.which("callGraph")
 
 
+def _normalize_language(language: str | None) -> str | None:
+    if not language:
+        return None
+    return _LANGUAGE_ALIASES.get(language.strip().lower(), language.strip())
+
+
 def _infer_language(folder: Path) -> str | None:
     ext_to_lang = {
         ".awk": "awk",
-        ".bash": "bash",
-        ".bas": "basic",
+        ".bash": "sh",
+        ".bas": "bas",
         ".dart": "dart",
-        ".f": "fortran",
-        ".f90": "fortran",
+        ".f": "for",
+        ".f90": "for",
         ".go": "go",
         ".jl": "jl",
         ".js": "js",
         ".kt": "kotlin",
         ".lua": "lua",
-        ".m": "matlab",
+        ".m": "m",
+        ".pas": "pas",
         ".php": "php",
         ".pl": "pl",
         ".pm": "pl",
         ".py": "py",
         ".r": "r",
-        ".rb": "ruby",
-        ".rs": "rust",
-        ".scala": "scala",
+        ".rb": "rb",
+        ".rs": "rs",
+        ".scala": "sc",
+        ".sh": "sh",
         ".swift": "swift",
         ".tcl": "tcl",
+        ".ts": "ts",
     }
 
     counts: dict[str, int] = {}
     for path in folder.rglob("*"):
         if not path.is_file():
             continue
-        language = ext_to_lang.get(path.suffix.lower())
+        language = _normalize_language(ext_to_lang.get(path.suffix.lower()))
         if not language:
             continue
         counts[language] = counts.get(language, 0) + 1
@@ -75,6 +131,23 @@ def _infer_language(folder: Path) -> str | None:
     if list(counts.values()).count(top_count) > 1:
         return None
     return top_language
+
+
+def _normalize_start(raw: str) -> str:
+    raw = raw.strip()
+    if not raw:
+        return raw
+
+    if re.search(r"\s", raw):
+        match = re.search(r"\bfn\s+([A-Za-z_][A-Za-z0-9_]*)", raw)
+        if match:
+            return match.group(1)
+
+        match = re.search(r"\bdef\s+([A-Za-z_][A-Za-z0-9_]*)", raw)
+        if match:
+            return match.group(1)
+
+    return raw
 
 
 def _default_output_path(function_name: str) -> Path:
@@ -140,8 +213,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 2
 
-    language = args.language or _infer_language(folder) or "py"
-    output = args.output or _default_output_path(args.function)
+    start = _normalize_start(args.function)
+    language = _normalize_language(args.language) or _infer_language(folder) or "py"
+    output = args.output or _default_output_path(start)
     output.parent.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
@@ -155,7 +229,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "-language",
         language,
         "-start",
-        args.function,
+        start,
         "-output",
         str(output),
     ]
