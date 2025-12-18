@@ -4,11 +4,7 @@ Small wrapper around koknat/callGraph to generate static call graphs.
 
 ## Setup
 
-Initialize the bundled `callGraph` submodule:
-
-```bash
-git submodule update --init --recursive
-```
+`callGraph` is vendored in `third_party/callGraph/` (see `third_party/callGraph/LICENSE`).
 
 Install system dependencies required by `callGraph` (Debian/Ubuntu):
 
@@ -52,5 +48,3 @@ Override the language and output path:
 ```bash
 callgraphtool path/to/project my_function --language py --output callgraph.svg
 ```
-
-For Rust projects, `callgraphtool` preprocesses sources to improve parsing (e.g. `pub async fn` and `::<T>(...)`); disable with `--no-rust-preprocess`.
