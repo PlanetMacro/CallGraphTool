@@ -1,4 +1,13 @@
 #!/usr/bin/perl
+# Vendored from https://github.com/koknat/callGraph (by Chris Koknat).
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# This is a modified version used by CallGraphTool.
+# Notable modifications:
+# - `-writeSubsetCode` includes per-function source location comments (path:line).
+# - `-writeSubsetCode` uses project-relative paths and emits start functions first.
+#
+# See `LICENSE` at the repo root.
 # #!/home/utils/perl-5.8.8/bin/perl
 use utf8;
 use open qw(:std :encoding(utf8));
@@ -1237,6 +1246,67 @@ if ( $opt{jsnIn} or $opt{ymlIn} ) {
     }
 }
 
+sub subsetCodeCommentPrefix {
+    my ($language) = @_;
+    my %prefix = (
+        awk   => '#',
+        bas   => q{'},
+        c     => '//',
+        cpp   => '//',
+        dart  => '//',
+        for   => '!',
+        go    => '//',
+        java  => '//',
+        jl    => '#',
+        js    => '//',
+        kt    => '//',
+        lua   => '--',
+        m     => '%',
+        pas   => '//',
+        php   => '//',
+        pl    => '#',
+        py    => '#',
+        r     => '#',
+        rb    => '#',
+        rs    => '//',
+        sc    => '//',
+        sh    => '#',
+        swift => '//',
+        tcl   => '#',
+        ts    => '//',
+        v     => '//',
+    );
+    return $prefix{$language} // '#';
+}
+
+sub subsetCodeRelativeFile {
+    my ( $file, $baseDirsRef ) = @_;
+
+    return $file if !defined $file;
+    return $file if !defined $baseDirsRef or !@{$baseDirsRef};
+
+    my $best;
+    for my $dir ( @{$baseDirsRef} ) {
+        next if !defined $dir;
+        my $d = $dir;
+        $d =~ s{/*$}{};
+        next if $d eq '';
+        my $prefix = "$d/";
+        if ( index( $file, $prefix ) == 0 ) {
+            if ( !defined $best or length($d) > length($best) ) {
+                $best = $d;
+            }
+        }
+    }
+
+    if ( defined $best ) {
+        my $prefix = "$best/";
+        my $rel    = substr( $file, length($prefix) );
+        return $rel if defined $rel and $rel ne '';
+    }
+    return $file;
+}
+
 # -writeSubsetCode
 # Optionally create an output source file which includes only the subroutines included in the graph
 if ( $opt{writeSubsetCode} ) {
@@ -1245,10 +1315,29 @@ if ( $opt{writeSubsetCode} ) {
     say "\nCreating subset source file $subsetFile";
     open( my $OUT, ">", $subsetFile ) or die "\nERROR: Cannot open file for writing:  $subsetFile\n";
     print $OUT "$shebang\n" if defined $shebang;
+    my $commentPrefix = subsetCodeCommentPrefix($language);
+    my @baseDirs = grep { -d $_ } @ARGV;
+
+    my %seen;
+    my @ordered_file_subs;
+    for my $file_sub (@initial_nodes) {
+        next unless exists $graph->{node}{$file_sub};
+        next if $seen{$file_sub}++;
+        push @ordered_file_subs, $file_sub;
+    }
     for my $file_sub ( sort keys %{ $graph->{node} } ) {
+        next if $seen{$file_sub}++;
+        push @ordered_file_subs, $file_sub;
+    }
+
+    for my $file_sub (@ordered_file_subs) {
         my ( $file, $sub ) = split( /:/, $file_sub );
         d '$file $sub';
         next if $sub eq $main;    # Don't want main to clutter it up
+        my $lineNum = $funcDefinition->{$sub}{$file}{line};
+        my $fileRel = subsetCodeRelativeFile( $file, \@baseDirs );
+        my $source  = defined $lineNum ? "$fileRel:$lineNum" : $fileRel;
+        print $OUT "\n$commentPrefix Source: $source ($sub)\n";
         print $OUT $funcContents->{$sub}{$file};
     }
     close $OUT;
